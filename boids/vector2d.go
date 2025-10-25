@@ -35,6 +35,9 @@ func (v1 *Vector2D) DivisionValue(v float64) *Vector2D {
 	return &Vector2D{v1.x / v, v1.y / v}
 }
 
+// limit 限制向量的值的大小。
+// 如果向量内字段的大小小于lower，则将向量的大小设置为lower。
+// 如果向量内字段的大小大于upper，则将向量的大小设置为upper。
 func (v1 *Vector2D) limit(lower, upper float64) *Vector2D {
 	return &Vector2D{
 		x: math.Min(math.Max(v1.x, lower), upper),
@@ -43,5 +46,5 @@ func (v1 *Vector2D) limit(lower, upper float64) *Vector2D {
 }
 
 func (v1 *Vector2D) Distance(v2 *Vector2D) float64 {
-	return math.Sqrt(math.Pow(v1.x-v2.x, 2) + math.Pow(v1.x-v2.x, 2))
+	return math.Sqrt(math.Pow(v1.x-v2.x, 2) + math.Pow(v1.y-v2.y, 2))
 }
