@@ -23,7 +23,7 @@ var (
 	// 两个维度分别表示 x 和 y 坐标，值为 bid。若值为 -1，则表示该位置没有被占据。
 	boidMap [screenWidth + 1][screenHeight + 1]int
 
-	lock sync.Mutex
+	rwLock sync.RWMutex
 )
 
 type Game struct{}

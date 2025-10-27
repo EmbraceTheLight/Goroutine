@@ -21,11 +21,11 @@ func (b *Boid) calcAcceleration() *Vector2D {
 	// upper: 视野范围的右上边界；lower: 视野范围的左下边界
 	upper, lower := b.position.AddValue(viewRadius), b.position.AddValue(-viewRadius)
 
-	// 计算在 lower, upper 围成的内切圆区域除自己外的所有 boid 的位置的平均值和速度的平均值。
-	avgPosition, avgVelocity := &Vector2D{x: 0, y: 0}, &Vector2D{x: 0, y: 0}
-	count := 0
+	// 计算在 lower, upper 围成的内切圆区域除自己外的所有 boid 的位置的平均值、速度的平均值和分离加速度的平均值。
+	avgPosition, avgVelocity, separation := &Vector2D{x: 0, y: 0}, &Vector2D{x: 0, y: 0}, &Vector2D{x: 0, y: 0}
+	count := 0.0
 
-	lock.Lock()
+	rwLock.RLock()
 	for i := math.Max(lower.x, 0); i <= math.Min(upper.x, screenWidth); i++ {
 		for j := math.Max(lower.y, 0); j <= math.Min(upper.y, screenHeight); j++ {
 			if boidId := boidMap[int(i)][int(j)]; boidId != -1 && boidId != b.id {
@@ -33,73 +33,63 @@ func (b *Boid) calcAcceleration() *Vector2D {
 				if dist := boids[boidId].position.Distance(b.position); dist < viewRadius {
 					count++
 					avgVelocity = avgVelocity.Add(boids[boidId].velocity)
-					avgPosition.Add(boids[boidId].position)
+					avgPosition = avgPosition.Add(boids[boidId].position)
+					separation = separation.Add(b.position.Subtract(boids[boidId].position)).DivisionValue(dist)
 				}
 			}
 		}
 	}
-	lock.Unlock()
+	rwLock.RUnlock()
 
 	accel := &Vector2D{
-		x: 0,
-		y: 0,
+		x: b.borderBounce(b.position.x, screenWidth),
+		y: b.borderBounce(b.position.y, screenHeight),
 	}
 
 	if count > 0 {
 		// 计算平均速度、平均位置
-		avgVelocity = avgVelocity.DivisionValue(float64(count))
-		avgPosition = avgVelocity.DivisionValue(float64(count))
+		avgVelocity = avgVelocity.DivisionValue(count)
+		avgPosition = avgPosition.DivisionValue(count)
 
 		// 2. avgVelocity 减去 boid 的当前速度，得到两者的差值, 若此时 boid 速度加上该加速度，则速度方向与平均速度方向一致
 		// 3. 将 差值 乘以调整因子 adjRate，得到 boid 的加速度 accel，此时 boid 速度加上加速度，速度方向趋近平均速度方向，
 		accelAlignment := avgVelocity.Subtract(b.velocity).MultiplyValue(adjRate)
 		accelCohesion := avgPosition.Subtract(b.position).MultiplyValue(adjRate)
-		accel = accel.Add(accelAlignment).Add(accelCohesion)
+		accelSeparation := separation.MultiplyValue(adjRate)
+		accel = accel.
+			Add(accelAlignment).
+			Add(accelCohesion).
+			Add(accelSeparation)
 	}
 
 	return accel
 }
 
+// borderBounce 边界反弹
+func (b *Boid) borderBounce(pos, maxBorderPos float64) float64 {
+	if pos < viewRadius { // 在左下角
+		return 1 / pos
+
+		// 在右上角
+	} else if pos > maxBorderPos-viewRadius {
+		return 1 / (pos - maxBorderPos)
+	}
+	return 0
+}
+
 func (b *Boid) moveOne() {
 	acceleration := b.calcAcceleration()
-	lock.Lock()
-	defer lock.Unlock()
+	rwLock.Lock()
 
 	// 更新速度
 	b.velocity = b.velocity.Add(acceleration).limit(-1, 1)
 
-	// 记录位置更新前横纵坐标
-	oldX, oldY := int(b.position.x), int(b.position.y)
-
-	// 按照既定速度对当前位置进行一次更新, 即：
-	// b.position.x = b.position.x + b.velocity.x
-	// b.position.y = b.position.y + b.velocity.y
+	/// 更新 boidMap
+	boidMap[int(b.position.x)][int(b.position.y)] = -1
 	b.position = b.position.Add(b.velocity)
-
-	// 更新 boidMap
-	// 将当前位置标记为 -1，表示已离开该位置
-	boidMap[oldX][oldY] = -1
-
 	// 更新新位置的值为 1
 	boidMap[int(b.position.x)][int(b.position.y)] = b.id
-
-	// 获取下一次 boid 更新后的位置，防止下一次移动时 boid 的位置越过屏幕范围
-	next := b.position.Add(b.velocity)
-
-	// 要越过屏幕宽度范围，此时反转速度矢量的 x 轴值
-	if next.x < 0 || next.x > screenWidth {
-		b.velocity = &Vector2D{
-			x: -b.velocity.x,
-			y: b.velocity.y,
-		}
-	}
-	// 要越过屏幕高度范围，此时反转速度矢量的 x 轴值
-	if next.y < 0 || next.y > screenHeight {
-		b.velocity = &Vector2D{
-			x: b.velocity.x,
-			y: -b.velocity.y,
-		}
-	}
+	rwLock.Unlock()
 }
 
 func (b *Boid) start() {
