@@ -4,14 +4,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"image/color"
 	"log"
+	"sync"
 )
 
 const (
 	screenWidth  = 640
 	screenHeight = 360
 	boidCount    = 500
-	viewRadius   = 50   // 范围。用于寻找半径在 viewRadius 范围内的 boids。
-	adjRate      = 0.05 // 调整因子
+	viewRadius   = 13    // 范围。用于寻找半径在 viewRadius 范围内的 boids。
+	adjRate      = 0.015 // 调整因子
 )
 
 var (
@@ -21,6 +22,8 @@ var (
 	// 二维 bit map。标记某个位置是否被一个 boid 占据.
 	// 两个维度分别表示 x 和 y 坐标，值为 bid。若值为 -1，则表示该位置没有被占据。
 	boidMap [screenWidth + 1][screenHeight + 1]int
+
+	lock sync.Mutex
 )
 
 type Game struct{}
