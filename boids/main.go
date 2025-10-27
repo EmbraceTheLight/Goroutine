@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/hajimehoshi/ebiten"
+	"github.com/hajimehoshi/ebiten/v2"
 	"image/color"
 	"log"
 )
@@ -25,11 +25,11 @@ var (
 
 type Game struct{}
 
-//func (g *Game) Update(screen *ebiten.Image) error {
-//	return nil
-//}
+func (g *Game) Update() error {
+	return nil
+}
 
-func (g *Game) Update(screen *ebiten.Image) error {
+func (g *Game) Draw(screen *ebiten.Image) {
 	// 打印物体：每个为物体为一个菱形（旋转了 45° 的正方形）
 	for _, boid := range boids {
 		screen.Set(int(boid.position.x)+1, int(boid.position.y), green)
@@ -37,7 +37,6 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		screen.Set(int(boid.position.x), int(boid.position.y)+1, green)
 		screen.Set(int(boid.position.x), int(boid.position.y)-1, green)
 	}
-	return nil
 }
 
 func (g *Game) Layout(_, _ int) (w, h int) {
