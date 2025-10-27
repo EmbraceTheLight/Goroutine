@@ -114,6 +114,7 @@ func createBoid(bid int) {
 	b := Boid{
 		position: &Vector2D{rand.Float64() * screenWidth, rand.Float64() * screenHeight}, // 配置随机位置，位于规定的屏幕范围内
 		velocity: &Vector2D{rand.Float64()*2 - 1.0, rand.Float64()*2 - 1.0},              // 速度配置为 -1 到 1 之间，
+		id:       bid,
 	}
 	boids[bid] = &b
 	boidMap[int(b.position.x)][int(b.position.y)] = bid
