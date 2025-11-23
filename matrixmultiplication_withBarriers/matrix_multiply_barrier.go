@@ -4,7 +4,6 @@ package main
 import (
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 )
 
@@ -13,12 +12,11 @@ const (
 )
 
 var (
-	matrixA   = [matrixSize][matrixSize]int{}
-	matrixB   = [matrixSize][matrixSize]int{}
-	result    = [matrixSize][matrixSize]int{}
-	rwLock    = sync.RWMutex{}
-	cond      = sync.NewCond(rwLock.RLocker())
-	waitGroup = sync.WaitGroup{}
+	matrixA      = [matrixSize][matrixSize]int{}
+	matrixB      = [matrixSize][matrixSize]int{}
+	result       = [matrixSize][matrixSize]int{}
+	workStart    = NewBarrier(matrixSize + 1) // 多出的一个信号量为主协程准备
+	workComplete = NewBarrier(matrixSize + 1)
 )
 
 func generateRandomMatrix(matrix *[matrixSize][matrixSize]int) {
@@ -30,20 +28,19 @@ func generateRandomMatrix(matrix *[matrixSize][matrixSize]int) {
 }
 
 func workOutRow(row int) {
-	rwLock.RLock()
 	for {
-		waitGroup.Done()
-		cond.Wait()
+		// 等待主协程生成矩阵 A 和 B
+		workStart.Wait()
 		for col := 0; col < matrixSize; col++ {
 			for i := 0; i < matrixSize; i++ {
 				result[row][col] += matrixA[row][i] * matrixB[i][col]
 			}
 		}
+		workComplete.Wait() // 完成一行的计算，等待其他协程完成计算。全部完成后，开启下一轮等待。
 	}
 }
 func main() {
 	fmt.Println("Working...")
-	waitGroup.Add(matrixSize)
 
 	// 创建 workOutRow 计算线程。每个 goroutine 扶额计算出新矩阵的一行数据。
 	for row := 0; row < matrixSize; row++ {
@@ -51,18 +48,13 @@ func main() {
 	}
 
 	start := time.Now()
-	// 不使用并发，完成 500 次矩阵相乘需要 8.5s；使用并发，是需要不到 2s 即可计算完毕
-	for i := 0; i < 500; i++ {
-		// 等待 workOutRow 工作线程创建完毕，或者当前矩阵乘法计算完毕
-		waitGroup.Wait()
 
-		// 上锁，初始化两个矩阵的数据
-		rwLock.Lock()
+	// 不到 2 s 即可计算完毕。性能与之前使用 waitGroup + 条件变量的效率差不多。但是更直观简洁
+	for i := 0; i < 500; i++ {
 		generateRandomMatrix(&matrixA)
 		generateRandomMatrix(&matrixB)
-		waitGroup.Add(matrixSize)
-		rwLock.Unlock()
-		cond.Broadcast()
+		workStart.Wait()    // 生成完毕，此时会广播到所有工作协程中
+		workComplete.Wait() // 等待所有工作协程完成计算
 	}
 	elapsed := time.Since(start)
 	fmt.Println("Done...")
