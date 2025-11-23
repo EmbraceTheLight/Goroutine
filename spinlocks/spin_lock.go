@@ -24,6 +24,4 @@ func NewSpinLock() sync.Locker {
 	var lock SpinLock
 	return &lock
 }
-func main() {
 
-}
