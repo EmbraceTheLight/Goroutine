@@ -1,10 +1,24 @@
-package deadlock
+package arbitrator
 
 import (
 	"goroutine/deadlock_simple/common"
-	"sort"
+	"sync"
 	"time"
 )
+
+var (
+	controller = sync.Mutex{}
+	cond       = sync.NewCond(&controller)
+)
+
+func allFree(intersectionsToLock []*common.Intersection) bool {
+	for _, it := range intersectionsToLock {
+		if it.LockedBy >= 0 {
+			return false
+		}
+	}
+	return true
+}
 
 func lockIntersectionsInDistance(id, reserveStart, reserveEnd int, crossings []*common.Crossing) {
 	var intersectionsToLock []*common.Intersection
@@ -14,16 +28,16 @@ func lockIntersectionsInDistance(id, reserveStart, reserveEnd int, crossings []*
 		}
 	}
 
-	// 上锁前先对要上锁的交叉口排序，使得每次都是先尝试对编号最小的交叉口上锁，这样做可以打破死锁循环依赖的可能
-	sort.Slice(intersectionsToLock, func(i, j int) bool {
-		return intersectionsToLock[i].Id < intersectionsToLock[j].Id
-	})
+	controller.Lock()
+	for !allFree(intersectionsToLock) {
+		cond.Wait()
+	}
 
 	for _, it := range intersectionsToLock {
-		it.Mutex.Lock()
 		it.LockedBy = id
 		time.Sleep(100 * time.Millisecond)
 	}
+	controller.Unlock()
 }
 func MoveTrain(train *common.Train, distance int, crossings []*common.Crossing) {
 	for train.Front < distance {
@@ -34,8 +48,10 @@ func MoveTrain(train *common.Train, distance int, crossings []*common.Crossing) 
 			}
 			back := train.Front - train.TrainLength
 			if back == crossing.Position {
+				controller.Lock()
 				crossing.InterStation.LockedBy = -1
-				crossing.InterStation.Mutex.Unlock()
+				cond.Broadcast()
+				controller.Unlock()
 			}
 		}
 

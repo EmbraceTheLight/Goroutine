@@ -2,8 +2,9 @@ package main
 
 import (
 	"github.com/hajimehoshi/ebiten"
+	"goroutine/deadlock_simple/arbitrator"
 	"goroutine/deadlock_simple/common"
-	"goroutine/deadlock_simple/hierachy"
+	"goroutine/deadlock_simple/hierarchy"
 	"log"
 	"sync"
 )
@@ -35,27 +36,53 @@ func main() {
 			LockedBy: -1,
 		}
 	}
+	hierarchyToBreakDeadLock()
+	//arbitratorToBreakDeadLock()
+	if err := ebiten.Run(update, 320, 320, 3, "Trains in a box"); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	go deadlock.MoveTrain(trains[0], 300, []*common.Crossing{
+func arbitratorToBreakDeadLock() {
+	go arbitrator.MoveTrain(trains[0], 300, []*common.Crossing{
 		{Position: 125, InterStation: intersections[0]},
 		{Position: 175, InterStation: intersections[1]},
 	})
 
-	go deadlock.MoveTrain(trains[1], 300, []*common.Crossing{
+	go arbitrator.MoveTrain(trains[1], 300, []*common.Crossing{
 		{Position: 125, InterStation: intersections[1]},
 		{Position: 175, InterStation: intersections[2]},
 	})
 
-	go deadlock.MoveTrain(trains[2], 300, []*common.Crossing{
+	go arbitrator.MoveTrain(trains[2], 300, []*common.Crossing{
 		{Position: 125, InterStation: intersections[2]},
 		{Position: 175, InterStation: intersections[3]},
 	})
 
-	go deadlock.MoveTrain(trains[3], 300, []*common.Crossing{
+	go arbitrator.MoveTrain(trains[3], 300, []*common.Crossing{
 		{Position: 125, InterStation: intersections[3]},
 		{Position: 175, InterStation: intersections[0]},
 	})
-	if err := ebiten.Run(update, 320, 320, 3, "Trains in a box"); err != nil {
-		log.Fatal(err)
-	}
+}
+
+func hierarchyToBreakDeadLock() {
+	go hierarchy.MoveTrain(trains[0], 300, []*common.Crossing{
+		{Position: 125, InterStation: intersections[0]},
+		{Position: 175, InterStation: intersections[1]},
+	})
+
+	go hierarchy.MoveTrain(trains[1], 300, []*common.Crossing{
+		{Position: 125, InterStation: intersections[1]},
+		{Position: 175, InterStation: intersections[2]},
+	})
+
+	go hierarchy.MoveTrain(trains[2], 300, []*common.Crossing{
+		{Position: 125, InterStation: intersections[2]},
+		{Position: 175, InterStation: intersections[3]},
+	})
+
+	go hierarchy.MoveTrain(trains[3], 300, []*common.Crossing{
+		{Position: 125, InterStation: intersections[3]},
+		{Position: 175, InterStation: intersections[0]},
+	})
 }
